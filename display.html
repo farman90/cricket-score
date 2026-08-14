@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WS Arena - Cricket Scoreboard</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131c2e; --line:#243350;
+    --text:#39ff14; --muted:#93a3c0; --accent:#4ade80; --accent2:#fbbf24;
+    --danger:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+       background:var(--bg);color:var(--text);min-height:100vh}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px;text-align:center}
+
+  .board{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}
+  .teams{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  .team{font-size:clamp(18px,3vw,28px);font-weight:700;color:#39ff14}
+  .vs{color:var(--muted);font-size:14px}
+  .score{font-size:clamp(56px,14vw,140px);font-weight:800;line-height:1;
+         text-align:center;margin:18px 0 6px;font-variant-numeric:tabular-nums;color:#39ff14}
+  .score .wkt{color:var(--danger)}
+  .overs{text-align:center;color:var(--muted);font-size:clamp(16px,3vw,24px);
+         font-variant-numeric:tabular-nums}
+  .players{display:flex;justify-content:center;gap:28px;flex-wrap:wrap;
+           margin-top:14px;font-size:clamp(13px,2vw,16px)}
+  .players .pk{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:11px;margin-right:6px}
+  .players .pv{font-weight:700}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+        gap:12px;margin-top:26px}
+  .cell{background:#0f1728;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .cell .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+  .cell .v{font-size:20px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .status{margin-top:18px;text-align:center;color:var(--accent2);
+          font-size:clamp(14px,2.4vw,20px);font-weight:600;min-height:1.2em}
+  .balls{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+  .ball{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+        background:#0f1728;border:1px solid var(--line);font-size:13px;font-weight:700}
+  .ball.w{background:var(--danger);border-color:var(--danger);color:#1a0808}
+  .ball.four{background:#2563eb;border-color:#2563eb}
+  .ball.six{background:var(--accent);border-color:var(--accent);color:#06240f}
+
+  .tag{display:inline-block;background:#0f1728;border:1px solid var(--line);
+       border-radius:999px;padding:4px 10px;font-size:11px;color:var(--muted)}
+  .arena{
+    text-align:center;font-weight:900;letter-spacing:4px;text-transform:uppercase;
+    font-size:clamp(20px,4vw,36px);color:#fbbf24;
+    text-shadow:0 0 18px rgba(251,191,36,.55);margin-bottom:6px;
+  }
+
+  /* ---------- CELEBRATION BANNER ---------- */
+  #celebrate{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    pointer-events:none;z-index:999;opacity:0;
+  }
+  #celebrate.show{animation:celebrateFade 1.6s ease forwards}
+  #celebrate .big{
+    font-weight:900;text-transform:uppercase;letter-spacing:2px;
+    font-size:clamp(48px,16vw,180px);text-align:center;
+    text-shadow:0 0 24px currentColor,0 0 60px currentColor;
+    transform:scale(0.4);animation:celebratePop 1.6s cubic-bezier(.2,1.6,.4,1) forwards;
+  }
+  #celebrate.four .big{color:#2563eb}
+  #celebrate.six .big{color:var(--accent)}
+  #celebrate.wicket .big{color:var(--danger);animation:wicketWobble 1.6s cubic-bezier(.2,1.6,.4,1) forwards}
+  #celebrate .sub-emoji{
+    display:block;font-size:clamp(28px,7vw,64px);margin-top:8px;
+    animation:emojiSpin 1.2s ease-in-out infinite;
+  }
+
+  @keyframes celebrateFade{
+    0%{opacity:0}
+    10%{opacity:1}
+    75%{opacity:1}
+    100%{opacity:0}
+  }
+  @keyframes celebratePop{
+    0%{transform:scale(0.3) rotate(-6deg)}
+    35%{transform:scale(1.15) rotate(2deg)}
+    55%{transform:scale(0.95) rotate(0deg)}
+    70%{transform:scale(1.05)}
+    100%{transform:scale(1)}
+  }
+
+  /* funny wobble/shake for wickets, instead of the plain pop */
+  @keyframes wicketWobble{
+    0%{transform:scale(.3) rotate(0deg)}
+    15%{transform:scale(1.2) rotate(-15deg)}
+    30%{transform:scale(1.05) rotate(12deg)}
+    45%{transform:scale(1.1) rotate(-9deg)}
+    60%{transform:scale(1) rotate(6deg)}
+    75%{transform:scale(1.04) rotate(-4deg)}
+    90%{transform:scale(1) rotate(2deg)}
+    100%{transform:scale(1) rotate(0deg)}
+  }
+  @keyframes emojiSpin{
+    0%{transform:rotate(0deg) translateY(0)}
+    25%{transform:rotate(-20deg) translateY(-6px)}
+    50%{transform:rotate(15deg) translateY(0)}
+    75%{transform:rotate(-10deg) translateY(-4px)}
+    100%{transform:rotate(0deg) translateY(0)}
+  }
+
+  /* ---------- CONFETTI (sixes + win) ---------- */
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:998;overflow:hidden}
+  .confetti-piece{
+    position:absolute;top:-20px;width:10px;height:16px;opacity:.9;
+    animation-name:confettiFall;animation-timing-function:linear;animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    0%{transform:translateY(0) rotate(0deg);opacity:1}
+    100%{transform:translateY(110vh) rotate(540deg);opacity:.2}
+  }
+
+  /* ---------- WIN / LOSS OVERLAY ---------- */
+  #matchEnd{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:10px;background:rgba(6,10,20,.88);z-index:1000;text-align:center;
+  }
+  #matchEnd.show{display:flex;animation:overlayIn .5s ease both}
+  #matchEnd .headline{
+    font-weight:900;text-transform:uppercase;letter-spacing:3px;
+    font-size:clamp(40px,10vw,110px);text-shadow:0 0 30px currentColor,0 0 70px currentColor;
+    animation:celebratePop 1s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  #matchEnd.win .headline{color:var(--accent)}
+  #matchEnd.loss .headline{color:var(--danger)}
+  #matchEnd .subline{font-size:clamp(16px,3vw,26px);color:var(--muted);font-weight:600}
+  @keyframes overlayIn{
+    0%{opacity:0} 100%{opacity:1}
+  }
+
+  .score.pulse{animation:scorePulse .5s ease}
+  @keyframes scorePulse{
+    0%{transform:scale(1)}
+    40%{transform:scale(1.08)}
+    100%{transform:scale(1)}
+  }
+
+  .ball.new{animation:ballPop .4s ease}
+  @keyframes ballPop{
+    0%{transform:scale(0)}
+    70%{transform:scale(1.25)}
+    100%{transform:scale(1)}
+  }
+
+  /* ---------- GLOBAL ENTRANCE ANIMATIONS ---------- */
+  @keyframes fadeInUp{
+    0%{opacity:0;transform:translateY(18px)}
+    100%{opacity:1;transform:translateY(0)}
+  }
+  .arena{animation:fadeInUp .6s ease both, arenaGlow 2.4s ease-in-out infinite alternate}
+  .sub{animation:fadeInUp .6s ease .05s both}
+  .board{animation:fadeInUp .6s ease .1s both}
+  .teams{animation:fadeInUp .5s ease .18s both}
+  .score{animation:fadeInUp .5s ease .22s backwards}
+  .overs{animation:fadeInUp .5s ease .26s both}
+  .players{animation:fadeInUp .5s ease .3s both}
+  .meta .cell{opacity:1;animation:fadeInUp .5s ease backwards}
+  .meta .cell:nth-child(1){animation-delay:.34s}
+  .meta .cell:nth-child(2){animation-delay:.4s}
+  .meta .cell:nth-child(3){animation-delay:.46s}
+  .meta .cell:nth-child(4){animation-delay:.52s}
+  .balls{animation:fadeInUp .5s ease .56s both}
+  .status{animation:fadeInUp .5s ease .6s both}
+
+  @keyframes arenaGlow{
+    0%{text-shadow:0 0 12px rgba(251,191,36,.4)}
+    100%{text-shadow:0 0 26px rgba(251,191,36,.85)}
+  }
+
+  /* subtle transitions on anything that changes value */
+  .team, .overs, .players .pv, .cell .v, .status{transition:color .3s ease}
+  .cell{transition:transform .25s ease, box-shadow .25s ease}
+  .cell.pulse{animation:cellPulse .5s ease}
+  @keyframes cellPulse{
+    0%{transform:scale(1)}
+    45%{transform:scale(1.06);box-shadow:0 0 16px rgba(57,255,20,.35)}
+    100%{transform:scale(1)}
+  }
+  .ball{transition:transform .2s ease}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="arena">WS Arena</div>
+  <div class="sub" id="connNote"><span class="tag">display &mdash; read only</span></div>
+
+  <div class="board">
+    <div class="teams">
+      <div class="team" id="dBat">Team A <span class="vs">(batting)</span></div>
+      <div class="team" id="dBowl">Team B</div>
+    </div>
+    <div class="score"><span id="dRuns">0</span><span class="wkt">/<span id="dWkts">0</span></span></div>
+    <div class="overs"><span id="dOvers">0.0</span> overs<span id="dMaxOvers"></span></div>
+
+    <div class="players">
+      <div class="pcell"><span class="pk">Batsman</span> <span class="pv" id="dBatsman">&mdash;</span></div>
+      <div class="pcell"><span class="pk">Bowler</span> <span class="pv" id="dBowler">&mdash;</span></div>
+    </div>
+
+    <div class="meta">
+      <div class="cell"><div class="k">Run rate</div><div class="v" id="dRR">0.00</div></div>
+      <div class="cell"><div class="k">Target</div><div class="v" id="dTarget">&mdash;</div></div>
+      <div class="cell"><div class="k">Need</div><div class="v" id="dNeed">&mdash;</div></div>
+      <div class="cell"><div class="k">Req. rate</div><div class="v" id="dRRR">&mdash;</div></div>
+    </div>
+
+    <div class="balls" id="dBalls"></div>
+    <div class="status" id="dStatus"></div>
+  </div>
+
+  <div id="celebrate"><div class="big" id="celebrateText"></div></div>
+  <div id="confetti"></div>
+  <div id="matchEnd">
+    <div class="headline" id="matchEndText"></div>
+    <div class="subline" id="matchEndSub"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============ CONFIG ============ */
+const SUPABASE_URL  = "https://innaawxphneuglujyfqn.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_RUVT93lTW4QrbhDBpdKsuA_1NCTVWsS";
+const MATCH_ID      = 1;
+
+/* ============ STATE ============ */
+let S = {
+  bat:"Team A", bowl:"Team B",
+  runs:0, wkts:0, balls:0,
+  max_overs:20, target:0, status:"",
+  batsman:"", bowler:"",
+  recent:[]
+};
+let db = null;
+let lastRecentKey = null;
+let firstRender = true;
+
+/* ============ RENDER ============ */
+const $ = id => document.getElementById(id);
+const oversStr = b => Math.floor(b/6) + "." + (b%6);
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+// Sets text on an element and, if the value actually changed, replays a
+// pulse animation on its enclosing .cell (used for the run rate / target /
+// need / required-rate tiles so any live update is visually obvious).
+function setCellText(id, value){
+  const el = $(id);
+  const changed = el.textContent !== String(value);
+  el.textContent = value;
+  if(changed && !firstRender){
+    const cell = el.closest(".cell");
+    if(cell){ cell.classList.remove("pulse"); void cell.offsetWidth; cell.classList.add("pulse"); }
+  }
+}
+
+function render(){
+  $("dBat").innerHTML  = esc(S.bat) + ' <span class="vs">(batting)</span>';
+  $("dBowl").textContent = S.bowl;
+  $("dRuns").textContent = S.runs;
+  $("dWkts").textContent = S.wkts;
+  $("dOvers").textContent = oversStr(S.balls);
+  $("dMaxOvers").textContent = S.max_overs > 0 ? " / " + S.max_overs : "";
+  $("dBatsman").textContent = S.batsman || "—";
+  $("dBowler").textContent = S.bowler || "—";
+
+  const ov = S.balls/6;
+  setCellText("dRR", ov > 0 ? (S.runs/ov).toFixed(2) : "0.00");
+
+  if(S.target > 0){
+    const need = S.target - S.runs;
+    const ballsLeft = S.max_overs>0 ? S.max_overs*6 - S.balls : 0;
+    setCellText("dTarget", S.target);
+    setCellText("dNeed", need > 0
+      ? need + (ballsLeft>0 ? " off " + ballsLeft : "")
+      : "Won");
+    setCellText("dRRR", (need>0 && ballsLeft>0)
+      ? (need/(ballsLeft/6)).toFixed(2) : "—");
+  } else {
+    setCellText("dTarget", "—");
+    setCellText("dNeed",   "—");
+    setCellText("dRRR",    "—");
+  }
+
+  $("dStatus").textContent = S.status || "";
+
+  const recentKey = JSON.stringify(S.recent||[]);
+  const isNewEvent = !firstRender && recentKey !== lastRecentKey && (S.recent||[]).length > 0;
+  const lastEvent = isNewEvent ? S.recent[S.recent.length-1] : null;
+  lastRecentKey = recentKey;
+  firstRender = false;
+
+  $("dBalls").innerHTML = (S.recent||[]).map(function(r, idx, arr){
+    var c = "ball";
+    var isLast = idx === arr.length-1;
+    if(r === "W") c += " w";
+    else if(r === "4") c += " four";
+    else if(r === "6") c += " six";
+    if(isLast && isNewEvent) c += " new";
+    return '<div class="'+c+'">'+esc(r)+'</div>';
+  }).join("");
+
+  if(isNewEvent) triggerCelebration(lastEvent);
+
+  // Track whether we're in a fresh match state (new target/teams means new innings)
+  const matchKey = S.target + "|" + S.bat + "|" + S.bowl;
+  if(matchKey !== lastMatchKey){ matchEndShown = false; lastMatchKey = matchKey; }
+  checkMatchEnd();
+}
+
+const WICKET_LINES = [
+  "OUT!", "GONE!", "HOWZAT!", "TIMBER!", "SEE YA!", "CHOPPED!"
+];
+const WICKET_EMOJIS = ["🏏💥", "😱", "🤯", "🪦"];
+
+function triggerCelebration(ev){
+  const el = $("celebrate");
+  const txt = $("celebrateText");
+  let kind = null, label = "", emoji = "";
+
+  if(ev === "6"){
+    kind="six"; label="SIX!";
+    burstConfetti(70, ["#4ade80","#39ff14","#fbbf24"]);
+  } else if(ev === "4"){
+    kind="four"; label="FOUR!";
+  } else if(ev === "W"){
+    kind="wicket";
+    label = WICKET_LINES[Math.floor(Math.random()*WICKET_LINES.length)];
+    emoji = WICKET_EMOJIS[Math.floor(Math.random()*WICKET_EMOJIS.length)];
+  }
+
+  const scoreEl = document.querySelector(".score");
+  scoreEl.classList.remove("pulse"); void scoreEl.offsetWidth; scoreEl.classList.add("pulse");
+
+  if(!kind) return;
+  el.className = ""; void el.offsetWidth;
+  txt.innerHTML = esc(label) + (emoji ? '<span class="sub-emoji">'+emoji+'</span>' : "");
+  el.classList.add("show", kind);
+  setTimeout(function(){ el.classList.remove("show", kind); }, 1650);
+}
+
+function burstConfetti(count, colors){
+  colors = colors || ["#4ade80","#39ff14","#fbbf24","#2563eb","#f87171"];
+  const holder = $("confetti");
+  for(let i=0;i<count;i++){
+    const p = document.createElement("div");
+    p.className = "confetti-piece";
+    const left = Math.random()*100;
+    const dur = 2.2 + Math.random()*1.6;
+    const delay = Math.random()*0.4;
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    p.style.left = left + "vw";
+    p.style.background = color;
+    p.style.animationDuration = dur + "s";
+    p.style.animationDelay = delay + "s";
+    p.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
+    holder.appendChild(p);
+    setTimeout(function(){ p.remove(); }, (dur+delay)*1000 + 200);
+  }
+}
+
+/* ---------- WIN / LOSS ---------- */
+const MAX_WICKETS = 10;
+let matchEndShown = false;
+let lastMatchKey = null;
+
+function checkMatchEnd(){
+  if(S.target <= 0){ $("matchEnd").className = ""; return; }
+  if(matchEndShown) return;
+  const inningsOver = S.wkts >= MAX_WICKETS || (S.max_overs>0 && S.balls >= S.max_overs*6);
+
+  if(S.runs >= S.target){
+    matchEndShown = true;
+    showMatchEnd("win", esc(S.bat) + " WIN!", esc(S.bat) + " chased down " + S.target + " successfully.");
+    burstConfetti(220);
+  } else if(inningsOver){
+    matchEndShown = true;
+    const margin = S.target - S.runs;
+    showMatchEnd("loss", esc(S.bowl) + " WIN!", esc(S.bat) + " fell short by " + margin + " run" + (margin===1?"":"s") + ".");
+  }
+}
+
+function showMatchEnd(kind, headline, sub){
+  const el = $("matchEnd");
+  el.className = "show " + kind;
+  $("matchEndText").innerHTML = headline;
+  $("matchEndSub").textContent = sub;
+}
+
+/* ============ SUPABASE SYNC (read-only) ============ */
+function normalize(d){
+  return {
+    bat:d.bat||"Team A", bowl:d.bowl||"Team B",
+    runs:d.runs||0, wkts:d.wkts||0, balls:d.balls||0,
+    max_overs:d.max_overs||0, target:d.target||0,
+    status:d.status||"", batsman:d.batsman||"", bowler:d.bowler||"",
+    recent:d.recent||[]
+  };
+}
+
+async function initDB(){
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const res = await db.from("match").select("*").eq("id", MATCH_ID).single();
+  if(res.error){ $("connNote").innerHTML = '<span class="tag">connection error: '+esc(res.error.message)+'</span>'; }
+  else if(res.data){ S = normalize(res.data); render(); }
+
+  db.channel("match-"+MATCH_ID)
+    .on("postgres_changes",
+        {event:"*", schema:"public", table:"match", filter:"id=eq."+MATCH_ID},
+        function(p){ S = normalize(p.new); render(); })
+    .subscribe(function(st){
+      $("connNote").innerHTML = '<span class="tag">live: '+esc(String(st).toLowerCase())+'</span>';
+    });
+}
+
+initDB();
+render();
+</script>
+</body>
+</html>
