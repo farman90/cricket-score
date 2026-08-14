@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WS Arena - Scorer Control</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131c2e; --line:#243350;
+    --text:#39ff14; --muted:#93a3c0; --accent:#4ade80; --accent2:#fbbf24;
+    --danger:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+       background:var(--bg);color:var(--text);min-height:100vh}
+  .wrap{max-width:640px;margin:0 auto;padding:20px}
+  h1{font-size:18px;margin:0 0 4px;letter-spacing:.5px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .arena{
+    text-align:center;font-weight:900;letter-spacing:3px;text-transform:uppercase;
+    font-size:clamp(16px,4vw,24px);color:#fbbf24;
+    text-shadow:0 0 14px rgba(251,191,36,.5);margin-bottom:6px;
+  }
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .tag{display:inline-block;background:#0f1728;border:1px solid var(--line);
+       border-radius:999px;padding:4px 10px;font-size:11px;color:var(--muted)}
+
+  .mini{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:16px;text-align:center;margin-bottom:16px}
+  .mini .teams{font-size:14px;color:var(--muted);margin-bottom:4px}
+  .mini .score{font-size:44px;font-weight:800;color:#39ff14}
+  .mini .overs{font-size:14px;color:var(--muted)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  button{cursor:pointer;border:1px solid var(--line);background:#1b2740;color:var(--text);
+         border-radius:10px;padding:12px 16px;font-size:15px;font-weight:600}
+  button:hover{background:#243350}
+  button.big{flex:1;min-width:64px}
+  button.acc{background:var(--accent);color:#06240f;border-color:var(--accent)}
+  button.dgr{background:var(--danger);color:#2a0a0a;border-color:var(--danger)}
+  input,select{background:#0f1728;border:1px solid var(--line);color:var(--text);
+        border-radius:10px;padding:10px 12px;font-size:15px}
+  label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;
+        letter-spacing:.08em;margin-bottom:4px}
+  .field{flex:1;min-width:140px}
+  .hint{color:var(--muted);font-size:12px}
+  .login{max-width:360px;margin:60px auto;background:var(--panel);
+         border:1px solid var(--line);border-radius:16px;padding:24px}
+  .err{color:var(--danger);font-size:13px;min-height:1.2em;margin-top:8px}
+  .hidden{display:none!important}
+
+  /* ---------- ANIMATIONS ---------- */
+  @keyframes fadeInUp{
+    0%{opacity:0;transform:translateY(16px)}
+    100%{opacity:1;transform:translateY(0)}
+  }
+  @keyframes arenaGlow{
+    0%{text-shadow:0 0 10px rgba(251,191,36,.35)}
+    100%{text-shadow:0 0 20px rgba(251,191,36,.75)}
+  }
+  .arena{animation:fadeInUp .5s ease both, arenaGlow 2.4s ease-in-out infinite alternate}
+  .topbar{animation:fadeInUp .5s ease .05s both}
+  .login{animation:fadeInUp .5s ease .1s both}
+  .mini{animation:fadeInUp .5s ease .1s both}
+  .panel{animation:fadeInUp .5s ease .16s both}
+
+  button{transition:transform .12s ease, background .15s ease, box-shadow .15s ease}
+  button:hover{transform:translateY(-1px)}
+  button:active{transform:scale(.94)}
+  button.acc:hover{box-shadow:0 0 14px rgba(74,222,128,.5)}
+  button.dgr:hover{box-shadow:0 0 14px rgba(248,113,113,.5)}
+
+  input,select{transition:border-color .2s ease, box-shadow .2s ease}
+  input:focus,select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(74,222,128,.25)}
+
+  .mini .score{transition:transform .15s ease}
+  .mini .score.pulse{animation:scorePulse .45s ease}
+  @keyframes scorePulse{
+    0%{transform:scale(1)} 45%{transform:scale(1.12)} 100%{transform:scale(1)}
+  }
+
+  .err{transition:opacity .2s ease}
+  .err:empty{opacity:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="arena">WS Arena</div>
+
+  <div class="topbar">
+    <div>
+      <h1>Scorer Control</h1>
+      <div class="sub" id="connNote"><span class="tag">connecting&hellip;</span></div>
+    </div>
+    <div>
+      <button id="btnLogout" class="hidden">Log out</button>
+    </div>
+  </div>
+
+  <div class="login" id="loginBox">
+    <label>User ID</label>
+    <input id="inUser" style="width:100%" autocomplete="username">
+    <div style="height:12px"></div>
+    <label>Password</label>
+    <input id="inPass" type="password" style="width:100%" autocomplete="current-password">
+    <div style="height:16px"></div>
+    <button class="acc" id="btnLogin" style="width:100%">Log in</button>
+    <div class="err" id="loginErr"></div>
+    <div class="hint" style="margin-top:10px">This page is for the scorer only. The projector should open display.html instead.</div>
+  </div>
+
+  <div id="scorerArea" class="hidden">
+    <div class="mini">
+      <div class="teams"><span id="mBat">Team A</span> vs <span id="mBowl">Team B</span></div>
+      <div class="score"><span id="mRuns">0</span>/<span id="mWkts">0</span></div>
+      <div class="overs"><span id="mOvers">0.0</span> overs</div>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <button class="big" data-run="0">0</button>
+        <button class="big" data-run="1">1</button>
+        <button class="big" data-run="2">2</button>
+        <button class="big" data-run="3">3</button>
+        <button class="big acc" data-run="4">4</button>
+        <button class="big acc" data-run="6">6</button>
+      </div>
+      <div class="row">
+        <button class="big dgr" id="bWicket">Wicket</button>
+        <button class="big" id="bWide">Wide +1</button>
+        <button class="big" id="bNoball">No ball +1</button>
+        <button class="big" id="bBye">Bye +1</button>
+        <button class="big" id="bUndo">Undo</button>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label>Batting team</label><input id="cBat" style="width:100%"></div>
+        <div class="field"><label>Bowling team</label><input id="cBowl" style="width:100%"></div>
+        <div class="field"><label>Max overs (0 = none)</label><input id="cMaxOvers" type="number" min="0" style="width:100%"></div>
+        <div class="field"><label>Target (0 = none)</label><input id="cTarget" type="number" min="0" style="width:100%"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Batsman on strike</label><input id="cBatsman" style="width:100%" placeholder="e.g. Farman"></div>
+        <div class="field"><label>Bowler</label><input id="cBowler" style="width:100%" placeholder="e.g. Ali"></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:3"><label>Status message</label><input id="cStatus" style="width:100%" placeholder="e.g. Innings break"></div>
+        <div style="display:flex;align-items:flex-end"><button class="acc" id="bSave">Save details</button></div>
+        <div style="display:flex;align-items:flex-end"><button id="bSwap">Swap Batting/Bowling</button></div>
+        <div style="display:flex;align-items:flex-end"><button class="dgr" id="bReset">Reset match</button></div>
+      </div>
+      <div class="hint">Both teams can score with the same login &mdash; hand this page's password to whichever side is controlling. "Swap" flips who's batting/bowling and starts a fresh innings. Changes appear on the projector display within about a second.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============ CONFIG ============ */
+const SUPABASE_URL  = "https://innaawxphneuglujyfqn.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_RUVT93lTW4QrbhDBpdKsuA_1NCTVWsS";
+const MATCH_ID      = 1;
+
+const SCORER_ID     = "admin";
+const SCORER_PASS   = "cricket123";
+
+/* ============ STATE ============ */
+const blank = () => ({
+  bat:"Team A", bowl:"Team B",
+  runs:0, wkts:0, balls:0,
+  max_overs:20, target:0, status:"",
+  batsman:"", bowler:"",
+  recent:[]
+});
+let S = blank();
+let history = [];
+let db = null;
+
+const $ = id => document.getElementById(id);
+const oversStr = b => Math.floor(b/6) + "." + (b%6);
+
+let miniFirstRender = true;
+function renderMini(){
+  const scoreKey = S.runs + "/" + S.wkts + "@" + S.balls;
+  if(!miniFirstRender && renderMini._lastKey !== scoreKey){
+    const scoreEl = document.querySelector(".mini .score");
+    scoreEl.classList.remove("pulse"); void scoreEl.offsetWidth; scoreEl.classList.add("pulse");
+  }
+  renderMini._lastKey = scoreKey;
+  miniFirstRender = false;
+
+  $("mBat").textContent = S.bat;
+  $("mBowl").textContent = S.bowl;
+  $("mRuns").textContent = S.runs;
+  $("mWkts").textContent = S.wkts;
+  $("mOvers").textContent = oversStr(S.balls);
+
+  const msg = inningsOverMessage();
+  let warn = $("mWarn");
+  if(!warn){
+    warn = document.createElement("div");
+    warn.id = "mWarn";
+    warn.style.cssText = "margin-top:8px;color:#f87171;font-size:12px;font-weight:700";
+    document.querySelector(".mini").appendChild(warn);
+  }
+  warn.textContent = msg || "";
+}
+
+function normalize(d){
+  return {
+    bat:d.bat||"Team A", bowl:d.bowl||"Team B",
+    runs:d.runs||0, wkts:d.wkts||0, balls:d.balls||0,
+    max_overs:d.max_overs||0, target:d.target||0,
+    status:d.status||"", batsman:d.batsman||"", bowler:d.bowler||"",
+    recent:d.recent||[]
+  };
+}
+
+async function initDB(){
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const res = await db.from("match").select("*").eq("id", MATCH_ID).single();
+  if(res.error){ $("connNote").innerHTML = '<span class="tag">connection error: '+esc(res.error.message)+'</span>'; }
+  else if(res.data){ S = normalize(res.data); renderMini(); fillForm(); }
+
+  db.channel("match-"+MATCH_ID)
+    .on("postgres_changes",
+        {event:"*", schema:"public", table:"match", filter:"id=eq."+MATCH_ID},
+        function(p){ S = normalize(p.new); renderMini(); fillForm(); })
+    .subscribe(function(st){
+      $("connNote").innerHTML = '<span class="tag">live: '+esc(String(st).toLowerCase())+'</span>';
+    });
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function push(){
+  renderMini();
+  const res = await db.from("match").update(S).eq("id", MATCH_ID);
+  if(res.error) $("connNote").innerHTML = '<span class="tag">save failed: '+esc(res.error.message)+'</span>';
+}
+
+/* ============ VALIDATION ============ */
+const MAX_WICKETS = 10;
+
+function inningsOverMessage(){
+  if(S.wkts >= MAX_WICKETS) return "Innings is over — all " + MAX_WICKETS + " wickets are down. Use \"Swap Batting/Bowling\" to start the next innings.";
+  if(S.max_overs > 0 && S.balls >= S.max_overs * 6) return "Innings is over — the " + S.max_overs + "-over limit is reached. Use \"Swap Batting/Bowling\" to start the next innings.";
+  return null;
+}
+function blockIfInningsOver(){
+  const msg = inningsOverMessage();
+  if(msg){ alert(msg); return true; }
+  return false;
+}
+
+/* ============ SCORING ============ */
+function snap(){ history.push(JSON.stringify(S)); if(history.length>60) history.shift(); }
+function addRecent(t){ S.recent = (S.recent||[]).concat([t]).slice(-6); }
+
+function legal(runs){
+  if(blockIfInningsOver()) return;
+  snap(); S.runs += runs; S.balls += 1; addRecent(String(runs)); push();
+}
+function wicket(){
+  if(S.wkts >= MAX_WICKETS){ alert("All " + MAX_WICKETS + " wickets are already down."); return; }
+  if(blockIfInningsOver()) return;
+  snap(); S.wkts += 1; S.balls += 1; addRecent("W"); push();
+}
+function extra(label){
+  if(blockIfInningsOver()) return;
+  snap(); S.runs += 1; addRecent(label); push();
+}
+function bye(){
+  if(blockIfInningsOver()) return;
+  snap(); S.runs += 1; S.balls += 1; addRecent("b1"); push();
+}
+
+/* ============ AUTH + WIRING ============ */
+function fillForm(){
+  $("cBat").value = S.bat; $("cBowl").value = S.bowl;
+  $("cMaxOvers").value = S.max_overs; $("cTarget").value = S.target;
+  $("cStatus").value = S.status;
+  $("cBatsman").value = S.batsman; $("cBowler").value = S.bowler;
+}
+function setScorer(on){
+  $("scorerArea").classList.toggle("hidden", !on);
+  $("loginBox").classList.toggle("hidden", on);
+  $("btnLogout").classList.toggle("hidden", !on);
+  if(on) fillForm();
+}
+
+$("btnLogout").onclick = function(){ sessionStorage.removeItem("cricket_auth"); setScorer(false); };
+$("btnLogin").onclick = function(){
+  if($("inUser").value.trim() === SCORER_ID && $("inPass").value === SCORER_PASS){
+    sessionStorage.setItem("cricket_auth","1");
+    $("loginErr").textContent = ""; $("inPass").value = "";
+    setScorer(true);
+  } else {
+    $("loginErr").textContent = "Wrong ID or password.";
+  }
+};
+$("inPass").addEventListener("keydown", function(e){ if(e.key==="Enter") $("btnLogin").click(); });
+
+Array.prototype.forEach.call(document.querySelectorAll("[data-run]"), function(b){
+  b.onclick = function(){ legal(parseInt(b.dataset.run,10)); };
+});
+$("bWicket").onclick  = wicket;
+$("bWide").onclick    = function(){ extra("wd"); };
+$("bNoball").onclick  = function(){ extra("nb"); };
+$("bBye").onclick     = bye;
+$("bUndo").onclick    = function(){ if(history.length){ S = JSON.parse(history.pop()); push(); fillForm(); } };
+
+function validateFormInputs(){
+  const rawOvers  = $("cMaxOvers").value.trim();
+  const rawTarget = $("cTarget").value.trim();
+  const overs  = rawOvers  === "" ? 0 : Number(rawOvers);
+  const target = rawTarget === "" ? 0 : Number(rawTarget);
+
+  if(rawOvers !== "" && (!Number.isInteger(overs) || overs < 0 || overs > 200)){
+    return "Max overs must be a whole number between 0 and 200 (0 = no limit).";
+  }
+  const completedOvers = Math.floor(S.balls/6);
+  if(overs > 0 && overs < completedOvers){
+    return "Max overs can't be less than the " + completedOvers + " over(s) already bowled this innings.";
+  }
+  if(rawTarget !== "" && (!Number.isInteger(target) || target < 0)){
+    return "Target must be a whole number 0 or greater (0 = no target).";
+  }
+  return null; // valid
+}
+
+$("bSave").onclick = function(){
+  const err = validateFormInputs();
+  if(err){ alert(err); return; }
+  snap();
+  S.bat  = $("cBat").value.trim()  || "Team A";
+  S.bowl = $("cBowl").value.trim() || "Team B";
+  S.max_overs = parseInt($("cMaxOvers").value,10) || 0;
+  S.target    = parseInt($("cTarget").value,10)   || 0;
+  S.status    = $("cStatus").value.trim();
+  S.batsman   = $("cBatsman").value.trim();
+  S.bowler    = $("cBowler").value.trim();
+  push();
+};
+$("bReset").onclick = function(){
+  if(!confirm("Reset the whole match to 0?")) return;
+  snap();
+  const keep = {bat:S.bat, bowl:S.bowl, max_overs:S.max_overs};
+  S = Object.assign(blank(), keep, {target:0, status:""});
+  push(); fillForm();
+};
+$("bSwap").onclick = function(){
+  if(!confirm("Start next innings? This swaps batting/bowling teams, sets the target to the current score, and resets runs/wickets/overs.")) return;
+  snap();
+  const newTarget = S.runs + 1;
+  const newMaxOvers = S.max_overs;
+  S = Object.assign(blank(), {
+    bat: S.bowl, bowl: S.bat,
+    max_overs: newMaxOvers, target: newTarget, status: ""
+  });
+  push(); fillForm();
+};
+
+/* ============ GO ============ */
+if(sessionStorage.getItem("cricket_auth")) setScorer(true);
+initDB();
+</script>
+</body>
+</html>
