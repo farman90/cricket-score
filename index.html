@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cricket Scoreboard</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131c2e; --line:#243350;
+    --text:#39ff14; --muted:#93a3c0; --accent:#4ade80; --accent2:#fbbf24;
+    --danger:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+       background:var(--bg);color:var(--text);min-height:100vh}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:.5px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+
+  .board{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px}
+  .teams{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .team{font-size:clamp(18px,3vw,28px);font-weight:700;color:#39ff14}
+  .vs{color:var(--muted);font-size:14px}
+  .score{font-size:clamp(56px,14vw,140px);font-weight:800;line-height:1;
+         text-align:center;margin:18px 0 6px;font-variant-numeric:tabular-nums;color:#39ff14}
+  .score .wkt{color:var(--danger)}
+  .overs{text-align:center;color:var(--muted);font-size:clamp(16px,3vw,24px);
+         font-variant-numeric:tabular-nums}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+        gap:12px;margin-top:26px}
+  .cell{background:#0f1728;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .cell .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+  .cell .v{font-size:20px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .status{margin-top:18px;text-align:center;color:var(--accent2);
+          font-size:clamp(14px,2.4vw,20px);font-weight:600;min-height:1.2em}
+  .balls{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+  .ball{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+        background:#0f1728;border:1px solid var(--line);font-size:13px;font-weight:700}
+  .ball.w{background:var(--danger);border-color:var(--danger);color:#1a0808}
+  .ball.four{background:#2563eb;border-color:#2563eb}
+  .ball.six{background:var(--accent);border-color:var(--accent);color:#06240f}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+         padding:20px;margin-top:20px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  button{cursor:pointer;border:1px solid var(--line);background:#1b2740;color:var(--text);
+         border-radius:10px;padding:12px 16px;font-size:15px;font-weight:600}
+  button:hover{background:#243350}
+  button.big{flex:1;min-width:64px}
+  button.acc{background:var(--accent);color:#06240f;border-color:var(--accent)}
+  button.dgr{background:var(--danger);color:#2a0a0a;border-color:var(--danger)}
+  input,select{background:#0f1728;border:1px solid var(--line);color:var(--text);
+        border-radius:10px;padding:10px 12px;font-size:15px}
+  label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;
+        letter-spacing:.08em;margin-bottom:4px}
+  .field{flex:1;min-width:140px}
+  .hint{color:var(--muted);font-size:12px}
+  .login{max-width:360px;margin:60px auto;background:var(--panel);
+         border:1px solid var(--line);border-radius:16px;padding:24px}
+  .err{color:var(--danger);font-size:13px;min-height:1.2em;margin-top:8px}
+  .hidden{display:none!important}
+  .tag{display:inline-block;background:#0f1728;border:1px solid var(--line);
+       border-radius:999px;padding:4px 10px;font-size:11px;color:var(--muted)}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <h1>Cricket Scoreboard</h1>
+      <div class="sub" id="modeTag"><span class="tag">display mode</span></div>
+    </div>
+    <div>
+      <button id="btnShowLogin">Scorer login</button>
+      <button id="btnLogout" class="hidden">Log out</button>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="teams">
+      <div class="team" id="dBat">Team A <span class="vs">(batting)</span></div>
+      <div class="team" id="dBowl">Team B</div>
+    </div>
+    <div class="score"><span id="dRuns">0</span><span class="wkt">/<span id="dWkts">0</span></span></div>
+    <div class="overs"><span id="dOvers">0.0</span> overs<span id="dMaxOvers"></span></div>
+
+    <div class="meta">
+      <div class="cell"><div class="k">Run rate</div><div class="v" id="dRR">0.00</div></div>
+      <div class="cell"><div class="k">Target</div><div class="v" id="dTarget">&mdash;</div></div>
+      <div class="cell"><div class="k">Need</div><div class="v" id="dNeed">&mdash;</div></div>
+      <div class="cell"><div class="k">Req. rate</div><div class="v" id="dRRR">&mdash;</div></div>
+    </div>
+
+    <div class="balls" id="dBalls"></div>
+    <div class="status" id="dStatus"></div>
+  </div>
+
+  <div class="login hidden" id="loginBox">
+    <label>User ID</label>
+    <input id="inUser" style="width:100%" autocomplete="username">
+    <div style="height:12px"></div>
+    <label>Password</label>
+    <input id="inPass" type="password" style="width:100%" autocomplete="current-password">
+    <div style="height:16px"></div>
+    <button class="acc" id="btnLogin" style="width:100%">Log in</button>
+    <div class="err" id="loginErr"></div>
+    <div class="hint" style="margin-top:10px">Only the scorer needs this. Everyone else just watches the board.</div>
+  </div>
+
+  <div class="panel hidden" id="ctrl">
+    <div class="row">
+      <button class="big" data-run="0">0</button>
+      <button class="big" data-run="1">1</button>
+      <button class="big" data-run="2">2</button>
+      <button class="big" data-run="3">3</button>
+      <button class="big acc" data-run="4">4</button>
+      <button class="big acc" data-run="6">6</button>
+    </div>
+    <div class="row">
+      <button class="big dgr" id="bWicket">Wicket</button>
+      <button class="big" id="bWide">Wide +1</button>
+      <button class="big" id="bNoball">No ball +1</button>
+      <button class="big" id="bBye">Bye +1</button>
+      <button class="big" id="bUndo">Undo</button>
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <div class="field"><label>Batting team</label><input id="cBat" style="width:100%"></div>
+      <div class="field"><label>Bowling team</label><input id="cBowl" style="width:100%"></div>
+      <div class="field"><label>Max overs (0 = none)</label><input id="cMaxOvers" type="number" min="0" style="width:100%"></div>
+      <div class="field"><label>Target (0 = none)</label><input id="cTarget" type="number" min="0" style="width:100%"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:3"><label>Status message</label><input id="cStatus" style="width:100%" placeholder="e.g. Innings break"></div>
+      <div style="display:flex;align-items:flex-end"><button class="acc" id="bSave">Save details</button></div>
+      <div style="display:flex;align-items:flex-end"><button class="dgr" id="bReset">Reset match</button></div>
+    </div>
+    <div class="hint">Changes appear on every open display within about a second.</div>
+  </div>
+
+  <div class="sub" style="margin-top:16px" id="connNote"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============ 1. CONFIG — fill these in ============ */
+const SUPABASE_URL  = "https://innaawxphneuglujyfqn.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_RUVT93lTW4QrbhDBpdKsuA_1NCTVWsS";
+const MATCH_ID      = 1;
+
+const SCORER_ID     = "admin";
+const SCORER_PASS   = "cricket123";
+
+/* ============ 2. STATE ============ */
+const blank = () => ({
+  bat:"Team A", bowl:"Team B",
+  runs:0, wkts:0, balls:0,
+  max_overs:20, target:0, status:"",
+  recent:[]
+});
+let S = blank();
+let history = [];
+let db = null, isScorer = false;
+
+/* ============ 3. RENDER ============ */
+const $ = id => document.getElementById(id);
+const oversStr = b => Math.floor(b/6) + "." + (b%6);
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  $("dBat").innerHTML  = esc(S.bat) + ' <span class="vs">(batting)</span>';
+  $("dBowl").textContent = S.bowl;
+  $("dRuns").textContent = S.runs;
+  $("dWkts").textContent = S.wkts;
+  $("dOvers").textContent = oversStr(S.balls);
+  $("dMaxOvers").textContent = S.max_overs > 0 ? " / " + S.max_overs : "";
+
+  const ov = S.balls/6;
+  $("dRR").textContent = ov > 0 ? (S.runs/ov).toFixed(2) : "0.00";
+
+  if(S.target > 0){
+    const need = S.target - S.runs;
+    const ballsLeft = S.max_overs>0 ? S.max_overs*6 - S.balls : 0;
+    $("dTarget").textContent = S.target;
+    $("dNeed").textContent = need > 0
+      ? need + (ballsLeft>0 ? " off " + ballsLeft : "")
+      : "Won";
+    $("dRRR").textContent = (need>0 && ballsLeft>0)
+      ? (need/(ballsLeft/6)).toFixed(2) : "—";
+  } else {
+    $("dTarget").textContent = "—";
+    $("dNeed").textContent   = "—";
+    $("dRRR").textContent    = "—";
+  }
+
+  $("dStatus").textContent = S.status || "";
+  $("dBalls").innerHTML = (S.recent||[]).map(function(r){
+    var c = "ball";
+    if(r === "W") c += " w";
+    else if(r === "4") c += " four";
+    else if(r === "6") c += " six";
+    return '<div class="'+c+'">'+esc(r)+'</div>';
+  }).join("");
+}
+
+/* ============ 4. SUPABASE SYNC ============ */
+const configured = !SUPABASE_URL.startsWith("PASTE_");
+
+function normalize(d){
+  return {
+    bat:d.bat||"Team A", bowl:d.bowl||"Team B",
+    runs:d.runs||0, wkts:d.wkts||0, balls:d.balls||0,
+    max_overs:d.max_overs||0, target:d.target||0,
+    status:d.status||"", recent:d.recent||[]
+  };
+}
+
+async function initDB(){
+  if(!configured){
+    $("connNote").innerHTML = '<span class="tag">offline demo &mdash; Supabase not configured</span>';
+    const saved = localStorage.getItem("cricket_local");
+    if(saved){ try{ S = JSON.parse(saved); }catch(e){} }
+    render();
+    return;
+  }
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const res = await db.from("match").select("*").eq("id", MATCH_ID).single();
+  if(res.error){ $("connNote").innerHTML = '<span class="tag">connection error: '+esc(res.error.message)+'</span>'; }
+  else if(res.data){ S = normalize(res.data); render(); }
+
+  db.channel("match-"+MATCH_ID)
+    .on("postgres_changes",
+        {event:"*", schema:"public", table:"match", filter:"id=eq."+MATCH_ID},
+        function(p){ S = normalize(p.new); render(); })
+    .subscribe(function(st){
+      $("connNote").innerHTML = '<span class="tag">live: '+esc(String(st).toLowerCase())+'</span>';
+    });
+}
+
+async function push(){
+  render();
+  if(!configured){ localStorage.setItem("cricket_local", JSON.stringify(S)); return; }
+  const res = await db.from("match").update(S).eq("id", MATCH_ID);
+  if(res.error) $("connNote").innerHTML = '<span class="tag">save failed: '+esc(res.error.message)+'</span>';
+}
+
+/* ============ 5. SCORING ============ */
+function snap(){ history.push(JSON.stringify(S)); if(history.length>60) history.shift(); }
+function addRecent(t){ S.recent = (S.recent||[]).concat([t]).slice(-6); }
+
+function legal(runs){ snap(); S.runs += runs; S.balls += 1; addRecent(String(runs)); push(); }
+function wicket(){ snap(); S.wkts += 1; S.balls += 1; addRecent("W"); push(); }
+function extra(label){ snap(); S.runs += 1; addRecent(label); push(); }
+function bye(){ snap(); S.runs += 1; S.balls += 1; addRecent("b1"); push(); }
+
+/* ============ 6. AUTH + WIRING ============ */
+function fillForm(){
+  $("cBat").value = S.bat; $("cBowl").value = S.bowl;
+  $("cMaxOvers").value = S.max_overs; $("cTarget").value = S.target;
+  $("cStatus").value = S.status;
+}
+function setScorer(on){
+  isScorer = on;
+  $("ctrl").classList.toggle("hidden", !on);
+  $("loginBox").classList.add("hidden");
+  $("btnLogout").classList.toggle("hidden", !on);
+  $("btnShowLogin").classList.toggle("hidden", on);
+  $("modeTag").innerHTML = on
+    ? '<span class="tag">scorer mode &mdash; you control the board</span>'
+    : '<span class="tag">display mode</span>';
+  if(on) fillForm();
+}
+
+$("btnShowLogin").onclick = function(){ $("loginBox").classList.toggle("hidden"); };
+$("btnLogout").onclick = function(){ sessionStorage.removeItem("cricket_auth"); setScorer(false); };
+$("btnLogin").onclick = function(){
+  if($("inUser").value.trim() === SCORER_ID && $("inPass").value === SCORER_PASS){
+    sessionStorage.setItem("cricket_auth","1");
+    $("loginErr").textContent = ""; $("inPass").value = "";
+    setScorer(true);
+  } else {
+    $("loginErr").textContent = "Wrong ID or password.";
+  }
+};
+$("inPass").addEventListener("keydown", function(e){ if(e.key==="Enter") $("btnLogin").click(); });
+
+Array.prototype.forEach.call(document.querySelectorAll("[data-run]"), function(b){
+  b.onclick = function(){ legal(parseInt(b.dataset.run,10)); };
+});
+$("bWicket").onclick  = wicket;
+$("bWide").onclick    = function(){ extra("wd"); };
+$("bNoball").onclick  = function(){ extra("nb"); };
+$("bBye").onclick     = bye;
+$("bUndo").onclick    = function(){ if(history.length){ S = JSON.parse(history.pop()); push(); fillForm(); } };
+
+$("bSave").onclick = function(){
+  snap();
+  S.bat  = $("cBat").value.trim()  || "Team A";
+  S.bowl = $("cBowl").value.trim() || "Team B";
+  S.max_overs = parseInt($("cMaxOvers").value,10) || 0;
+  S.target    = parseInt($("cTarget").value,10)   || 0;
+  S.status    = $("cStatus").value.trim();
+  push();
+};
+$("bReset").onclick = function(){
+  if(!confirm("Reset the whole match to 0?")) return;
+  snap();
+  const keep = {bat:S.bat, bowl:S.bowl, max_overs:S.max_overs};
+  S = Object.assign(blank(), keep, {target:0, status:""});
+  push(); fillForm();
+};
+
+/* ============ 7. GO ============ */
+if(sessionStorage.getItem("cricket_auth")) setScorer(true);
+initDB();
+render();
+</script>
+</body>
+</html>
